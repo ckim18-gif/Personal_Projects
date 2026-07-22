@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>대숲 버티기 - Bamboo Survivor</title>
+<style>
+  :root {
+    --bg: #0e1410;
+    --panel: #16201a;
+    --bamboo: #2f6b3f;
+    --bamboo-light: #4a9c5c;
+    --accent: #ffd873;
+    --danger: #ff5b5b;
+    --text: #eef5ee;
+    --dim: #7c9483;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(ellipse at center, #1a2a1c 0%, var(--bg) 75%);
+    font-family: 'Courier New', monospace;
+    color: var(--text);
+    gap: 14px;
+    padding: 20px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 22px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-shadow: 0 0 14px rgba(255,216,115,0.4);
+  }
+  #topRow { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; }
+  #hud {
+    display: flex;
+    gap: 22px;
+    font-size: 13px;
+    color: var(--dim);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  #hud span { color: var(--text); font-weight: bold; }
+  #wrap {
+    position: relative;
+    border: 2px solid #2c3d2e;
+    border-radius: 6px;
+    box-shadow: 0 0 30px rgba(74,156,92,0.12), inset 0 0 50px rgba(0,0,0,0.4);
+    background: var(--panel);
+  }
+  canvas { display: block; border-radius: 4px; }
+  #overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(14,20,16,0.90);
+    backdrop-filter: blur(2px);
+    border-radius: 4px;
+    text-align: center;
+    padding: 20px;
+  }
+  #overlay.hidden { display: none; }
+  #overlay h2 { margin: 0; color: var(--danger); font-size: 20px; letter-spacing: 2px; }
+  #overlay p { margin: 3px 0; color: var(--dim); font-size: 13px; }
+  button {
+    margin-top: 10px;
+    padding: 10px 24px;
+    background: var(--accent);
+    color: #0e1410;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-weight: bold;
+    font-size: 13px;
+    letter-spacing: 1px;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.1); }
+  #hint {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    text-align: center;
+  }
+  #diffRow {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .diffBtn {
+    margin-top: 0;
+    padding: 9px 14px;
+    font-size: 12px;
+    background: #2a3a2c;
+    color: var(--text);
+    border: 1px solid #3d5240;
+  }
+  .diffBtn.easy { border-color: #4a9c5c; }
+  .diffBtn.normal { border-color: #ffd873; }
+  .diffBtn.impossible { border-color: #ff5b5b; color: #ffb3b3; }
+  .diffBtn:hover { filter: brightness(1.25); }
+  #cheatBtn {
+    background: #3a2a55; color: #e6d9ff; border: 1px solid #7a5fc4;
+    font-size: 12px; padding: 9px 14px;
+  }
+  #hof {
+    width: 100%;
+    max-width: 480px;
+    background: var(--panel);
+    border: 1px solid #2c3d2e;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+  #hof h3 {
+    margin: 0 0 6px 0;
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: var(--accent);
+  }
+  #hof ol {
+    margin: 0;
+    padding-left: 20px;
+    color: var(--dim);
+  }
+  #hof li { margin: 3px 0; }
+  #hof li.legend { color: var(--danger); font-weight: bold; }
+  #hof li span.name { color: var(--text); }
+  input[type="text"], input[type="number"] {
+    margin-top: 6px;
+    padding: 9px 12px;
+    font-family: inherit;
+    font-size: 14px;
+    background: #0e1410;
+    border: 1px solid #3d5240;
+    color: var(--text);
+    border-radius: 4px;
+    text-align: center;
+    width: 220px;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+  .loyaltyRow { display: flex; gap: 10px; margin-top: 10px; }
+  .agreeBtn { background: #4a9c5c; color: #08130a; }
+  .disagreeBtn { background: var(--danger); color: #2a0505; }
+  #overlay.banned { background: rgba(20,4,4,0.96); }
+  #overlay.banned h2 { color: var(--danger); font-size: 26px; }
+  #overlay.godreturn h2 { color: var(--accent); font-size: 28px; text-shadow: 0 0 20px rgba(255,216,115,0.7); }
+  #musicBtn { background: #223a2c; color: var(--text); border: 1px solid #3d5240; font-size: 12px; padding: 8px 14px; margin-top: 0; }
+  #toast {
+    position: absolute;
+    top: 10px; left: 50%;
+    transform: translateX(-50%) translateY(-10px);
+    background: rgba(24,8,8,0.9);
+    color: #ffdede;
+    border: 1px solid var(--danger);
+    padding: 9px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    letter-spacing: 1px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    z-index: 20;
+    text-align: center;
+    max-width: 90%;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+  <h1>대숲 버티기 // BAMBOO SURVIVOR</h1>
+  <div id="topRow">
+    <button id="musicBtn">🎵 음악 재생</button>
+  </div>
+  <div id="hud">
+    <div>플레이어 <span id="nameDisp">-</span></div>
+    <div>시간 <span id="timeDisp">0.00</span>s</div>
+    <div>난이도 <span id="diffDisp">-</span></div>
+    <div>최고기록 <span id="bestDisp">0.00</span>s</div>
+    <div>레벨 <span id="levelDisp">1</span></div>
+  </div>
+
+  <div id="wrap">
+    <canvas id="game" width="480" height="480"></canvas>
+    <div id="toast"></div>
+    <div id="overlay">
+      <h2 id="overlayTitle">화살을 피해 버텨라</h2>
+      <p>방향키(← ↑ ↓ →)로 이동</p>
+      <p>화살촉(●)에 맞으면 죽는다. 화살대는 스쳐도 안전.</p>
+      <p>입장하려면 이름을 입력하세요</p>
+      <input type="text" id="nameInput" placeholder="이름을 입력..." maxlength="20">
+      <button id="nameSubmitBtn">다음</button>
+    </div>
+  </div>
+
+  <div id="hof">
+    <h3>명예의 전당</h3>
+    <ol>
+      <li class="legend">대<span class="name">Jackie</span>님의 기록 : 4분 18.00초 <span style="color:var(--dim); font-weight:normal;">(Jackie급)</span></li>
+      <li id="hofMine">아직 도전 기록 없음</li>
+    </ol>
+  </div>
+
+  <div id="hint">SPACE로 일시정지 · R로 재시작<span id="hintExtra"></span></div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+const timeDisp = document.getElementById('timeDisp');
+const nameDisp = document.getElementById('nameDisp');
+const diffDisp = document.getElementById('diffDisp');
+const bestDisp = document.getElementById('bestDisp');
+const levelDisp = document.getElementById('levelDisp');
+const overlay = document.getElementById('overlay');
+const hofMine = document.getElementById('hofMine');
+const toastEl = document.getElementById('toast');
+const hintExtra = document.getElementById('hintExtra');
+
+let playerName = '';
+let banned = false;
+let cheatMode = false;      // 대황Jackie님 실력 체감하기 (자동 회피 관전)
+let godJackieMode = false;  // 갓제키 모드
+let shieldActive = false;   // J키 무적 쉴드 (갓제키 전용)
+
+// ---------- Difficulty ----------
+const DIFFICULTIES = {
+  easy: {
+    label: '으정급 (쉬움)',
+    spawnBase: 75, spawnDecay: 1.3, spawnFloor: 26,
+    speedBase: 1.9, speedGrowth: 0.06,
+    arrowRampDiv: 1.6,
+  },
+  normal: {
+    label: '영진급 (보통)',
+    spawnBase: 55, spawnDecay: 2.2, spawnFloor: 14,
+    speedBase: 2.6, speedGrowth: 0.11,
+    arrowRampDiv: 1.0,
+  },
+  impossible: {
+    label: 'Jackie급 (불가능)',
+    spawnBase: 20, spawnDecay: 4.2, spawnFloor: 3,
+    speedBase: 5.6, speedGrowth: 0.34,
+    arrowRampDiv: 0.3,
+  },
+};
+let currentDifficulty = 'normal';
+function diffCfg() { return DIFFICULTIES[currentDifficulty]; }
+
+// ---------- Player ----------
+const player = { x: W/2, y: H/2, r: 7, speed: 3.4 };
+let keys = { up:false, down:false, left:false, right:false };
+
+// ---------- Game state ----------
+let running = false, paused = false;
+let survivalTime = 0;
+let best = 0;
+let warned30 = false, warned60 = false, warned258 = false;
+let forcedEndTimer = null;
+
+function bestKey(diff) { return 'bamboo_best_' + diff; }
+function loadBest(diff) { return parseFloat(localStorage.getItem(bestKey(diff)) || '0') || 0; }
+
+let arrows = [];
+let spawnTimer = 0;
+let level = 1;
+
+function getSpawnInterval() {
+  const c = diffCfg();
+  return Math.max(c.spawnFloor, c.spawnBase - survivalTime * c.spawnDecay);
+}
+function getArrowSpeed() {
+  const c = diffCfg();
+  return c.speedBase + survivalTime * c.speedGrowth;
+}
+function getArrowsPerSpawn() {
+  const t = survivalTime * diffCfg().arrowRampDiv;
+  if (t < 5) return 1;
+  if (t < 12) return Math.random() < 0.6 ? 1 : 2;
+  if (t < 20) return Math.random() < 0.5 ? 2 : 3;
+  return 2 + Math.floor(Math.random() * 3);
+}
+
+function formatMMSS(sec) {
+  const m = Math.floor(sec / 60);
+  const s = (sec % 60).toFixed(2).padStart(5, '0');
+  return `${m}분 ${s}초`;
+}
+function formatWatermark(sec) {
+  return String(Math.round(sec * 100));
+}
+
+function refreshHallOfFame() {
+  const b = loadBest(currentDifficulty);
+  if (b > 0) {
+    hofMine.innerHTML = `내 최고기록 (${diffCfg().label}) : ${formatMMSS(b)}`;
+  } else {
+    hofMine.textContent = `아직 도전 기록 없음 (${diffCfg().label})`;
+  }
+}
+
+function showToast(text, ms) {
+  toastEl.textContent = text;
+  toastEl.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toastEl.classList.remove('show'), ms || 3000);
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ---------- Arrows ----------
+function spawnArrow() {
+  const count = getArrowsPerSpawn();
+  for (let i = 0; i < count; i++) {
+    const edge = Math.floor(Math.random() * 4);
+    let sx, sy;
+    const margin = 40;
+    if (edge === 0) { sx = -margin; sy = Math.random() * H; }
+    else if (edge === 1) { sx = W + margin; sy = Math.random() * H; }
+    else if (edge === 2) { sx = Math.random() * W; sy = -margin; }
+    else { sx = Math.random() * W; sy = H + margin; }
+
+    const targetX = player.x + (Math.random() - 0.5) * 160;
+    const targetY = player.y + (Math.random() - 0.5) * 160;
+    let angle = Math.atan2(targetY - sy, targetX - sx);
+    angle += (Math.random() - 0.5) * 0.35;
+
+    const speed = getArrowSpeed() * (0.85 + Math.random() * 0.3);
+    arrows.push({
+      x: sx, y: sy,
+      dx: Math.cos(angle) * speed,
+      dy: Math.sin(angle) * speed,
+      len: 12,
+      tipR: 1.8,
+    });
+  }
+}
+
+// ---------- Cheat-mode auto dodge ----------
+function updateCheatAI() {
+  let rx = 0, ry = 0;
+  for (const a of arrows) {
+    const dx = player.x - a.x, dy = player.y - a.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 140 && d > 0.001) {
+      const w = 1 / (d * d);
+      rx += (dx / d) * w;
+      ry += (dy / d) * w;
+    }
+  }
+  let mx = 0, my = 0;
+  const rlen = Math.hypot(rx, ry);
+  if (rlen > 0.0001) {
+    mx = rx / rlen; my = ry / rlen;
+  } else {
+    const dx = (W/2) - player.x, dy = (H/2) - player.y;
+    const dl = Math.hypot(dx, dy);
+    if (dl > 1) { mx = dx/dl; my = dy/dl; }
+  }
+  player.x += mx * player.speed * 1.15;
+  player.y += my * player.speed * 1.15;
+}
+
+// ---------- Game flow ----------
+function resetGame() {
+  player.x = W/2; player.y = H/2;
+  arrows = [];
+  survivalTime = 0;
+  spawnTimer = 0;
+  level = 1;
+  warned30 = false; warned60 = false; warned258 = false;
+  shieldActive = false;
+  clearTimeout(forcedEndTimer);
+  timeDisp.textContent = godJackieMode ? '23년' : '0.00';
+  levelDisp.textContent = '1';
+  diffDisp.textContent = diffCfg().label + (cheatMode ? ' [관전]' : '') + (godJackieMode ? ' [갓제키]' : '');
+  best = loadBest(currentDifficulty);
+  bestDisp.textContent = best.toFixed(2);
+  hintExtra.textContent = godJackieMode ? ' · J키로 무적 쉴드' : (cheatMode ? ' · 자동 회피 관전 중' : '');
+  toastEl.classList.remove('show');
+}
+
+function startGame() {
+  resetGame();
+  running = true;
+  paused = false;
+  overlay.classList.remove('banned','godreturn');
+  overlay.classList.add('hidden');
+}
+
+function restartCurrent() { startGame(); }
+
+function chooseDifficulty(diff) {
+  cheatMode = false;
+  godJackieMode = false;
+  currentDifficulty = diff;
+  startGame();
+}
+
+function renderDifficultyScreen() {
+  overlay.classList.remove('banned','godreturn');
+  overlay.classList.remove('hidden');
+  overlay.innerHTML = `
+    <h2>${escapeHtml(playerName)}님, 난이도를 선택하세요</h2>
+    <p>방향키(← ↑ ↓ →)로 이동 · 화살촉(●)만 위험</p>
+    <div id="diffRow">
+      <button class="diffBtn easy" data-diff="easy">으정급 (쉬움)</button>
+      <button class="diffBtn normal" data-diff="normal">영진급 (보통)</button>
+      <button class="diffBtn impossible" data-diff="impossible">Jackie급 (불가능)</button>
+    </div>
+    <button id="cheatBtn">대황Jackie님 실력 체감하기</button>
+  `;
+  overlay.querySelectorAll('.diffBtn').forEach(btn => {
+    btn.addEventListener('click', () => chooseDifficulty(btn.dataset.diff));
+  });
+  document.getElementById('cheatBtn').addEventListener('click', renderPasswordScreen);
+}
+
+function renderBannedScreen() {
+  banned = true;
+  overlay.classList.remove('hidden');
+  overlay.classList.add('banned');
+  overlay.innerHTML = `
+    <h2>추방됨</h2>
+    <p>${escapeHtml(playerName)}님, 당신은 추방되었습니다.</p>
+    <p style="color:var(--dim); font-size:11px;">대Jackie님의 기록을 인정하지 않는 자는 대숲에 들어올 수 없습니다.</p>
+  `;
+}
+
+function renderLoyaltyScreen() {
+  overlay.classList.remove('hidden');
+  overlay.innerHTML = `
+    <h2>사상 검증</h2>
+    <p>${escapeHtml(playerName)}, 당신은 대Jackie님의 기록(4분 18초)을 인정하십니까?</p>
+    <div class="loyaltyRow">
+      <button class="agreeBtn" id="agreeBtn">AGREE</button>
+      <button class="disagreeBtn" id="disagreeBtn">DISAGREE</button>
+    </div>
+  `;
+  document.getElementById('agreeBtn').addEventListener('click', renderDifficultyScreen);
+  document.getElementById('disagreeBtn').addEventListener('click', renderBannedScreen);
+}
+
+// ---------- 대황Jackie님 실력 체감하기 (cheat mode) password gate ----------
+function renderPasswordScreen() {
+  overlay.classList.remove('hidden');
+  overlay.innerHTML = `
+    <h2>사상 검증 2단계</h2>
+    <p>Jackie가 가장 좋아하는 술은?</p>
+    <input type="text" id="pwInput" placeholder="답을 입력...">
+    <div class="loyaltyRow">
+      <button id="pwSubmitBtn">확인</button>
+      <button id="pwBackBtn" style="background:#2a3a2c; color:var(--text);">뒤로가기</button>
+    </div>
+  `;
+  const pwInput = document.getElementById('pwInput');
+  pwInput.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') checkPassword();
+  });
+  document.getElementById('pwSubmitBtn').addEventListener('click', checkPassword);
+  document.getElementById('pwBackBtn').addEventListener('click', renderDifficultyScreen);
+}
+
+function checkPassword() {
+  const val = document.getElementById('pwInput').value.trim();
+  if (val === '입술') {
+    cheatMode = true;
+    godJackieMode = false;
+    currentDifficulty = 'impossible';
+    startGame();
+  } else {
+    overlay.innerHTML = `
+      <h2>경외심 부족</h2>
+      <p>당신은 Jackie님에 대한 경외심이 부족합니다.</p>
+      <button id="pwRetryBtn">다시 시도</button>
+    `;
+    document.getElementById('pwRetryBtn').addEventListener('click', renderPasswordScreen);
+  }
+}
+
+// ---------- Jackie 본인 인증 (god mode) ----------
+function renderPowerliftingScreen() {
+  overlay.classList.remove('hidden');
+  overlay.innerHTML = `
+    <h2>...정녕 그분이십니까?</h2>
+    <p>3대 중량 최고기록(kg)을 입력하세요</p>
+    <input type="number" id="totalInput" placeholder="예: 450">
+    <button id="totalSubmitBtn">증명하기</button>
+  `;
+  const totalInput = document.getElementById('totalInput');
+  totalInput.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') checkPowerlifting();
+  });
+  document.getElementById('totalSubmitBtn').addEventListener('click', checkPowerlifting);
+}
+
+function checkPowerlifting() {
+  const v = parseFloat(document.getElementById('totalInput').value);
+  if (!isNaN(v) && v > 445) {
+    playerName = 'Jackie';
+    nameDisp.textContent = 'Jackie';
+    renderGodReturnScreen();
+  } else {
+    overlay.innerHTML = `
+      <h2>아직 부족합니다</h2>
+      <p>당신은 아직 그분의 경지에 이르지 못했습니다.</p>
+      <button id="totalRetryBtn">다시 시도</button>
+    `;
+    document.getElementById('totalRetryBtn').addEventListener('click', renderPowerliftingScreen);
+  }
+}
+
+function renderGodReturnScreen() {
+  overlay.classList.add('godreturn');
+  overlay.innerHTML = `
+    <h2>그가 돌아왔다!!</h2>
+    <p>대숲의 모든 화살이 그의 앞에 무릎을 꿇는다.</p>
+    <button id="enterGodBtn">강림하기</button>
+  `;
+  document.getElementById('enterGodBtn').addEventListener('click', startGodJackieMode);
+}
+
+function startGodJackieMode() {
+  godJackieMode = true;
+  cheatMode = false;
+  currentDifficulty = 'impossible';
+  startGame();
+}
+
+// ---------- Name entry ----------
+function submitName() {
+  const raw = document.getElementById('nameInput').value;
+  const val = raw.trim();
+  if (val === 'Jackie') {
+    renderPowerliftingScreen();
+  } else {
+    playerName = val || '무명';
+    nameDisp.textContent = playerName;
+    renderLoyaltyScreen();
+  }
+}
+document.getElementById('nameSubmitBtn').addEventListener('click', submitName);
+document.getElementById('nameInput').addEventListener('keydown', (e) => {
+  e.stopPropagation();
+  if (e.key === 'Enter') submitName();
+});
+
+// ---------- End game ----------
+function endGame(customTitle) {
+  if (!running) return;
+  running = false;
+  clearTimeout(forcedEndTimer);
+  if (!cheatMode) {
+    if (survivalTime > best) {
+      best = survivalTime;
+      localStorage.setItem(bestKey(currentDifficulty), best.toFixed(2));
+    }
+  }
+  bestDisp.textContent = best.toFixed(2);
+  refreshHallOfFame();
+  overlay.classList.remove('hidden');
+
+  const title = customTitle || (godJackieMode ? '그도 결국 화살에...?' : '화살에 맞았다!');
+  let retryLabel = '같은 난이도로 재도전';
+  let retryFn = () => chooseDifficulty(currentDifficulty);
+  if (cheatMode) { retryLabel = '다시 관전하기'; retryFn = restartCurrent; }
+  if (godJackieMode) { retryLabel = '다시 강림하기'; retryFn = restartCurrent; }
+
+  overlay.innerHTML = `
+    <h2>${escapeHtml(title)}</h2>
+    <p>모드: ${escapeHtml(diffCfg().label)}${cheatMode ? ' (관전 모드)' : ''}${godJackieMode ? ' (갓제키)' : ''}</p>
+    <p>생존 시간: ${survivalTime.toFixed(2)}초</p>
+    ${!cheatMode ? `<p>최고 기록: ${best.toFixed(2)}초</p>` : ''}
+    <button id="retryBtn">${retryLabel}</button>
+    <div id="diffRow" style="margin-top:6px;">
+      <button class="diffBtn easy" data-diff="easy">으정급 (쉬움)</button>
+      <button class="diffBtn normal" data-diff="normal">영진급 (보통)</button>
+      <button class="diffBtn impossible" data-diff="impossible">Jackie급 (불가능)</button>
+    </div>
+  `;
+  document.getElementById('retryBtn').addEventListener('click', retryFn);
+  overlay.querySelectorAll('.diffBtn').forEach(btn => {
+    btn.addEventListener('click', () => chooseDifficulty(btn.dataset.diff));
+  });
+}
+
+refreshHallOfFame();
+
+// ---------- Input ----------
+document.addEventListener('keydown', (e) => {
+  if (banned) return;
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+
+  if (!running && e.code === 'Space' && overlay.querySelector('.diffBtn')) { chooseDifficulty(currentDifficulty); return; }
+  if (e.code === 'KeyR' && (running || overlay.querySelector('.diffBtn'))) { restartCurrent(); return; }
+  if (e.code === 'Space' && running) { paused = !paused; return; }
+
+  if (e.code === 'ArrowUp') keys.up = true;
+  if (e.code === 'ArrowDown') keys.down = true;
+  if (e.code === 'ArrowLeft') keys.left = true;
+  if (e.code === 'ArrowRight') keys.right = true;
+  if (e.code === 'KeyJ') shieldActive = true;
+});
+document.addEventListener('keyup', (e) => {
+  if (e.code === 'ArrowUp') keys.up = false;
+  if (e.code === 'ArrowDown') keys.down = false;
+  if (e.code === 'ArrowLeft') keys.left = false;
+  if (e.code === 'ArrowRight') keys.right = false;
+  if (e.code === 'KeyJ') shieldActive = false;
+});
+
+// ---------- Music (procedural, original, no external files) ----------
+let audioCtx = null;
+let musicOn = false;
+let musicTimer = null;
+let noteIndex = 0;
+const scale = [220.00, 261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33];
+const pattern = [0,2,4,2,5,4,2,0, 0,3,4,3,7,4,3,0];
+
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+function playNote(freq, duration, type, vol) {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type || 'triangle';
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(vol || 0.045, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+function musicStep() {
+  const idx = pattern[noteIndex % pattern.length];
+  playNote(scale[idx % scale.length], 0.32, 'triangle', 0.045);
+  if (noteIndex % 4 === 0) playNote(scale[0] / 2, 0.5, 'sine', 0.035);
+  noteIndex++;
+}
+function toggleMusic() {
+  musicOn = !musicOn;
+  const btn = document.getElementById('musicBtn');
+  if (musicOn) {
+    ensureAudio();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    musicTimer = setInterval(musicStep, 260);
+    btn.textContent = '🔇 음악 끄기';
+  } else {
+    clearInterval(musicTimer);
+    btn.textContent = '🎵 음악 재생';
+  }
+}
+document.getElementById('musicBtn').addEventListener('click', toggleMusic);
+
+// ---------- Drawing ----------
+function drawBackground() {
+  ctx.fillStyle = '#16201a';
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(74,156,92,0.12)';
+  ctx.lineWidth = 14;
+  for (let i = 0; i < 6; i++) {
+    const x = 40 + i * (W - 80) / 5;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, H);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(255,216,115,0.15)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(W/2, H/2, Math.min(W,H)/2 - 20, 0, Math.PI*2);
+  ctx.stroke();
+}
+
+function drawTimeWatermark() {
+  if (!running) return;
+  ctx.save();
+  ctx.globalAlpha = 0.10;
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 118px "Courier New", monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const text = godJackieMode ? '23년' : formatWatermark(survivalTime);
+  ctx.fillText(text, W/2, H/2);
+  ctx.restore();
+}
+
+function drawPlayer() {
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  const s = 0.7;
+
+  if (godJackieMode && shieldActive) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,216,115,0.85)';
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = '#ffd873';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(0, 0, player.r + 9, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.fillStyle = '#f4e4c1';
+  ctx.beginPath();
+  ctx.arc(0, 4*s, player.r, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.fillStyle = '#3a3f36';
+  ctx.beginPath();
+  ctx.moveTo(-16*s, 0);
+  ctx.lineTo(16*s, 0);
+  ctx.lineTo(0, -18*s);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 17*s, 4*s, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawArrows() {
+  for (const a of arrows) {
+    const angle = Math.atan2(a.dy, a.dx);
+    const tailX = a.x - Math.cos(angle) * a.len;
+    const tailY = a.y - Math.sin(angle) * a.len;
+
+    ctx.strokeStyle = '#c9a86a';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(tailX, tailY);
+    ctx.lineTo(a.x, a.y);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#e8ecf1';
+    ctx.lineWidth = 0.8;
+    const fx = tailX + Math.cos(angle) * 2.2;
+    const fy = tailY + Math.sin(angle) * 2.2;
+    ctx.beginPath();
+    ctx.moveTo(tailX - Math.sin(angle)*1.8, tailY + Math.cos(angle)*1.8);
+    ctx.lineTo(fx, fy);
+    ctx.moveTo(tailX + Math.sin(angle)*1.8, tailY - Math.cos(angle)*1.8);
+    ctx.lineTo(fx, fy);
+    ctx.stroke();
+
+    ctx.fillStyle = '#ff5b5b';
+    ctx.shadowColor = '#ff5b5b';
+    ctx.shadowBlur = 3;
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, a.tipR, 0, Math.PI*2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+}
+
+// ---------- Update ----------
+function update(dt) {
+  if (!running || paused) return;
+
+  const effectiveDt = dt * (cheatMode ? 8 : 1);
+  survivalTime += effectiveDt;
+  timeDisp.textContent = godJackieMode ? '23년' : survivalTime.toFixed(2);
+
+  const newLevel = 1 + Math.floor(survivalTime / 8);
+  if (newLevel !== level) { level = newLevel; levelDisp.textContent = level; }
+
+  if (!godJackieMode) {
+    if (!warned30 && survivalTime >= 30) {
+      warned30 = true;
+      showToast('감히 그분과 맞먹으려 들지 마십시오.', 3200);
+    }
+    if (!warned60 && survivalTime >= 60) {
+      warned60 = true;
+      showToast('당신은 괴씸해지려고 합니다 조심하십시오!', 3200);
+    }
+    if (!warned258 && survivalTime >= 258) {
+      warned258 = true;
+      showToast('당신의 오만은 도를 넘어섰습니다!', 3000);
+      forcedEndTimer = setTimeout(() => {
+        if (running) endGame('당신의 오만은 도를 넘어섰습니다!');
+      }, 1400);
+    }
+  }
+
+  if (cheatMode) {
+    updateCheatAI();
+  } else {
+    let mx = 0, my = 0;
+    if (keys.up) my -= 1;
+    if (keys.down) my += 1;
+    if (keys.left) mx -= 1;
+    if (keys.right) mx += 1;
+    if (mx !== 0 || my !== 0) {
+      const len = Math.hypot(mx, my);
+      mx /= len; my /= len;
+      player.x += mx * player.speed;
+      player.y += my * player.speed;
+    }
+  }
+
+  const cx = W/2, cy = H/2, radius = Math.min(W,H)/2 - 22;
+  const ddx = player.x - cx, ddy = player.y - cy;
+  const dist = Math.hypot(ddx, ddy);
+  if (dist > radius) {
+    player.x = cx + (ddx/dist) * radius;
+    player.y = cy + (ddy/dist) * radius;
+  }
+
+  spawnTimer -= 1;
+  if (spawnTimer <= 0) {
+    spawnArrow();
+    spawnTimer = getSpawnInterval();
+  }
+
+  const invincible = cheatMode || (godJackieMode && shieldActive);
+
+  for (let i = arrows.length - 1; i >= 0; i--) {
+    const a = arrows[i];
+    a.x += a.dx;
+    a.y += a.dy;
+
+    if (a.x < -60 || a.x > W + 60 || a.y < -60 || a.y > H + 60) {
+      arrows.splice(i, 1);
+      continue;
+    }
+
+    if (!invincible) {
+      const d = Math.hypot(a.x - player.x, a.y - player.y);
+      if (d < a.tipR + player.r * 0.55) {
+        endGame();
+        return;
+      }
+    }
+  }
+}
+
+let lastTime = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - lastTime) / 1000);
+  lastTime = now;
+  update(dt);
+  drawBackground();
+  drawTimeWatermark();
+  drawArrows();
+  drawPlayer();
+  requestAnimationFrame(loop);
+}
+
+drawBackground();
+drawPlayer();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
