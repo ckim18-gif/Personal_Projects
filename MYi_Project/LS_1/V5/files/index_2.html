@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Fantasy Pixel World</title>
+<style>
+  :root{
+    --bg: #1a1410;
+    --wood: #a9713f;
+    --wood-dark: #6b4423;
+    --parchment: #e8d9b8;
+    --accent: #8fbc5a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin:0; height:100%;
+    background: var(--bg);
+    font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+    color: var(--parchment);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap: 14px;
+    padding: 16px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 22px;
+    letter-spacing: 2px;
+    text-shadow: 2px 2px 0 var(--wood-dark);
+  }
+  #stage-wrap {
+    position: relative;
+    padding: 10px;
+    background: linear-gradient(180deg, var(--wood) 0%, var(--wood-dark) 100%);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 0 3px #3d2814;
+  }
+  canvas#game {
+    display:block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    background:#3a5a2a;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 2px #3d2814;
+  }
+  #hint {
+    font-size: 13px;
+    color: #cbb98f;
+    text-align: center;
+    max-width: 640px;
+    line-height: 1.6;
+  }
+  kbd {
+    background: #241c16;
+    border: 1px solid #4a3826;
+    border-bottom-width: 3px;
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-size: 12px;
+    color: var(--accent);
+  }
+  #status { font-size: 12px; color: #a08a63; }
+</style>
+</head>
+<body>
+
+  <h1>🌲 판타지 도트 월드 — 오픈 필드 맵</h1>
+  <div id="stage-wrap">
+    <canvas id="game"></canvas>
+  </div>
+  <div id="hint">
+    <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 또는 방향키로 이동 · 층 구분 없이 하나로 이어진 맵을 위에서 내려다보는 시점입니다.
+  </div>
+  <div id="status">에셋 로딩 중...</div>
+
+<script>
+(() => {
+  const TILE = 16;
+  const VIEW_W = 20, VIEW_H = 13;
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  canvas.width = VIEW_W * TILE;
+  canvas.height = VIEW_H * TILE;
+  const RENDER_SCALE = 3;
+  canvas.style.width = (canvas.width * RENDER_SCALE) + 'px';
+  canvas.style.height = (canvas.height * RENDER_SCALE) + 'px';
+  const statusEl = document.getElementById('status');
+
+  // ---------- Assets ----------
+  const sheets = {};
+  function loadImage(key, src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => { sheets[key] = img; resolve(); };
+      img.onerror = reject;
+      img.src = src;
+    });
+  }
+
+  // ---------- World (single continuous map, no floors/stages) ----------
+  const MAP_W = 56, MAP_H = 38;
+  const pathMask = Array.from({length: MAP_H}, () => new Array(MAP_W).fill(false));
+  const solid    = Array.from({length: MAP_H}, () => new Array(MAP_W).fill(false));
+  const water    = Array.from({length: MAP_H}, () => new Array(MAP_W).fill(false));
+  const decorations = [];
+  const labels = [];
+
+  function fillPath(x0, y0, x1, y1) {
+    for (let y = Math.min(y0,y1); y <= Math.max(y0,y1); y++)
+      for (let x = Math.min(x0,x1); x <= Math.max(x0,x1); x++)
+        pathMask[y][x] = true;
+  }
+  function hLine(x0, x1, y, w=2) {
+    for (let x = Math.min(x0,x1); x <= Math.max(x0,x1); x++)
+      for (let k=0;k<w;k++) if (pathMask[y+k]) pathMask[y+k][x] = true;
+  }
+  function vLine(y0, y1, x, w=2) {
+    for (let y = Math.min(y0,y1); y <= Math.max(y0,y1); y++)
+      for (let k=0;k<w;k++) if (pathMask[y][x+k] !== undefined) pathMask[y][x+k] = true;
+  }
+
+  // ---- layout constants (mirrors the reference map: farm / clearing / lake / maze) ----
+  const garden = { x0:6, y0:3, x1:18, y1:11 };     // fenced farm, top-left
+  const clearing = { x0:4, y0:14, x1:19, y1:24 };  // open dirt clearing, forest interior
+  const lake = { x0:40, y0:2, x1:55, y1:10 };      // still water, top-right
+  const spawn = { x: 12, y: 32 };
+  const spineX = 45;
+
+  // paths: spawn -> garden gate, garden -> spine junction, spine up to lake, spine down to maze
+  vLine(11, spawn.y, 12, 2);
+  hLine(12, spineX, 11, 2);
+  vLine(4, 11, spineX, 2);
+  vLine(11, 17, spineX, 2);
+  fillPath(clearing.x0, clearing.y0, clearing.x1, clearing.y1);
+
+  // ---- fenced garden ----
+  for (let x = garden.x0; x <= garden.x1; x++) { solid[garden.y0][x]=true; solid[garden.y1][x]=true; }
+  for (let y = garden.y0; y <= garden.y1; y++) { solid[y][garden.x0]=true; solid[y][garden.x1]=true; }
+  const gateX = 12;
+  solid[garden.y1][gateX] = false; solid[garden.y1][gateX+1] = false;
+  pathMask[garden.y1][gateX] = true; pathMask[garden.y1][gateX+1] = true;
+  for (let x = garden.x0+1; x < garden.x1; x++)
+    for (let y = garden.y0+1; y < garden.y1; y++) {
+      if ((x + y*3) % 7 === 0) decorations.push({x,y,type:'flower'});
+      if ((x*5 + y) % 11 === 0) decorations.push({x,y,type:'tuft'});
+    }
+
+  // ---- lake (flat water fill; the pack's water art is a moat/ring shape, so a clean
+  //      still lake is rendered directly rather than mis-using that autotile) ----
+  for (let y = lake.y0; y <= lake.y1; y++)
+    for (let x = lake.x0; x <= lake.x1; x++) { water[y][x] = true; solid[y][x] = true; }
+  labels.push({ x:(lake.x0+lake.x1)/2, y: lake.y0-1, text:'호수의 인장' });
+  labels.push({ x: spawn.x, y: spawn.y-2, text:'스폰' });
+
+  // ---- maze (procedural, built from solid stone-wall blocks) ----
+  const mazeX0 = 36, mazeY0 = 18, cw = 9, ch = 8; // cells -> 19x17 tiles
+  const mazeVisited = Array.from({length: ch}, () => new Array(cw).fill(false));
+  function cellTile(cx, cy) { return [mazeX0 + cx*2 + 1, mazeY0 + cy*2 + 1]; }
+  // start solid everywhere in the maze rect
+  for (let y = mazeY0; y <= mazeY0 + ch*2; y++)
+    for (let x = mazeX0; x <= mazeX0 + cw*2; x++) solid[y][x] = true;
+  function carveMaze(cx, cy) {
+    mazeVisited[cy][cx] = true;
+    const [tx, ty] = cellTile(cx, cy);
+    solid[ty][tx] = false;
+    const dirs = [[0,-1],[0,1],[1,0],[-1,0]].sort(() => Math.random()-0.5);
+    for (const [dx,dy] of dirs) {
+      const nx = cx+dx, ny = cy+dy;
+      if (nx<0||ny<0||nx>=cw||ny>=ch||mazeVisited[ny][nx]) continue;
+      const [wx, wy] = [tx + dx, ty + dy];
+      solid[wy][wx] = false;
+      carveMaze(nx, ny);
+    }
+  }
+  carveMaze(0, 0);
+  // entrance: open the top wall so the spine path leads in
+  const entranceCol = 4;
+  const [ex, ey] = cellTile(entranceCol, 0);
+  solid[mazeY0][ex] = false;
+  solid[ey][ex] = false;
+  pathMask[mazeY0-1] && (pathMask[mazeY0-1][ex] = true);
+  vLine(17, mazeY0, spineX === ex ? spineX : ex, 1);
+  labels.push({ x: mazeX0 + cw, y: mazeY0 + ch*2 + 1, text:'미로' });
+
+  // realign the spine-to-maze connector to the actual entrance column
+  vLine(11, mazeY0, ex, 1);
+
+  // ---- seeded scatter of trees / rocks / tufts across the open forest ----
+  function mulberry32(a){return function(){let t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;}}
+  const rand = mulberry32(1337);
+  const occupied = new Set();
+  function inRect(x,y,r){return x>=r.x0-1&&x<=r.x1+1&&y>=r.y0-1&&y<=r.y1+1;}
+  function cellFree(x,y){
+    if (x<1||y<1||x>=MAP_W-2||y>=MAP_H-2) return false;
+    if (pathMask[y][x] || (pathMask[y+1]&&pathMask[y+1][x])) return false;
+    if (inRect(x,y,garden)||inRect(x,y,clearing)||inRect(x,y,lake)) return false;
+    if (x>=mazeX0-1 && x<=mazeX0+cw*2+1 && y>=mazeY0-1 && y<=mazeY0+ch*2+1) return false;
+    if (occupied.has(x+','+y) || occupied.has(x+','+(y-1))) return false;
+    return true;
+  }
+  const scatterPlan = [...Array(30).fill('bush'),...Array(20).fill('rock'),...Array(26).fill('tuft'),...Array(18).fill('flower'),...Array(10).fill('log')];
+  scatterPlan.forEach(type=>{
+    let tries=0;
+    while(tries<40){
+      const x=1+Math.floor(rand()*(MAP_W-3)), y=1+Math.floor(rand()*(MAP_H-3));
+      if (cellFree(x,y)) {
+        decorations.push({x,y,type});
+        occupied.add(x+','+y);
+        if (type==='bush') occupied.add(x+','+(y-1));
+        if (type==='bush'||type==='rock') solid[y][x]=true;
+        break;
+      }
+      tries++;
+    }
+  });
+
+  // ---------- tile lookups ----------
+  const GROUND_TILE = [8,4];
+  const PATH_TILES = { center:[2,1], N:[2,0], S:[1,2], E:[7,1], W:[0,1], NW:[1,0], NE:[3,0], SW:[0,2], SE:[3,2] };
+  function pathTileFor(x,y){
+    const has=(dx,dy)=>{const nx=x+dx,ny=y+dy;if(ny<0||ny>=MAP_H||nx<0||nx>=MAP_W)return false;return pathMask[ny][nx];};
+    const n=has(0,-1),s=has(0,1),e=has(1,0),w=has(-1,0);
+    const cnt=n+s+e+w;
+    if (cnt===4||cnt<=1) return PATH_TILES.center;
+    if (!n&&s&&e&&w) return PATH_TILES.N;
+    if (n&&!s&&e&&w) return PATH_TILES.S;
+    if (n&&s&&!e&&w) return PATH_TILES.E;
+    if (n&&s&&e&&!w) return PATH_TILES.W;
+    if (!n&&!w&&s&&e) return PATH_TILES.NW;
+    if (!n&&!e&&s&&w) return PATH_TILES.NE;
+    if (!s&&!w&&n&&e) return PATH_TILES.SW;
+    if (!s&&!e&&n&&w) return PATH_TILES.SE;
+    return PATH_TILES.center;
+  }
+  const RES_TILES = { tuft:[0,7], flower:[4,7], rock:[9,7], log:[0,8], bush:[0,4] };
+  const FENCE = { h:[1,0], v:[0,1], corner:[0,0] };
+  const WALL_TILE = [2,6]; // generic stone block used for maze walls
+
+  function drawTile(img,sx,sy,dx,dy){ ctx.drawImage(img, sx*TILE, sy*TILE, TILE, TILE, dx, dy, TILE, TILE); }
+
+  // ---------- placeholder player ----------
+  const player = { x: spawn.x*TILE, y: spawn.y*TILE, w:12, h:14, speed:66, facing:'down' };
+  const keys = {};
+  window.addEventListener('keydown', e=>{keys[e.key.toLowerCase()]=true;});
+  window.addEventListener('keyup',   e=>{keys[e.key.toLowerCase()]=false;});
+  function isSolidWorld(px,py){
+    const tx=Math.floor(px/TILE), ty=Math.floor(py/TILE);
+    if (tx<0||ty<0||tx>=MAP_W||ty>=MAP_H) return true;
+    return solid[ty][tx];
+  }
+  function collides(px,py){
+    return [[px,py],[px+player.w,py],[px,py+player.h],[px+player.w,py+player.h]]
+      .some(([cx,cy])=>isSolidWorld(cx,cy));
+  }
+  let last = performance.now();
+  function update(dt){
+    let dx=0,dy=0;
+    if (keys['w']||keys['arrowup'])    { dy-=1; player.facing='up'; }
+    if (keys['s']||keys['arrowdown'])  { dy+=1; player.facing='down'; }
+    if (keys['a']||keys['arrowleft'])  { dx-=1; player.facing='left'; }
+    if (keys['d']||keys['arrowright']) { dx+=1; player.facing='right'; }
+    if (dx||dy){
+      const len=Math.hypot(dx,dy); dx/=len; dy/=len;
+      const nx=player.x+dx*player.speed*dt, ny=player.y+dy*player.speed*dt;
+      if (!collides(nx,player.y)) player.x=nx;
+      if (!collides(player.x,ny)) player.y=ny;
+      player.x=Math.max(0,Math.min(player.x,MAP_W*TILE-player.w));
+      player.y=Math.max(0,Math.min(player.y,MAP_H*TILE-player.h));
+    }
+  }
+  function drawPlayer(px,py){
+    ctx.fillStyle='#00000055'; ctx.fillRect(px,py+player.h-2,player.w,3);
+    ctx.fillStyle='#3a6b8c'; ctx.fillRect(px+2,py+4,player.w-4,player.h-4);
+    ctx.fillStyle='#f2c199'; ctx.fillRect(px+3,py,player.w-6,6);
+    ctx.fillStyle='#5a3a24'; ctx.fillRect(px+2,py-2,player.w-4,3);
+    ctx.fillStyle='#222';
+    if (player.facing==='left') ctx.fillRect(px+3,py+2,1,1);
+    else if (player.facing==='right') ctx.fillRect(px+player.w-4,py+2,1,1);
+    else { ctx.fillRect(px+4,py+2,1,1); ctx.fillRect(px+player.w-5,py+2,1,1); }
+  }
+
+  function render(){
+    const camX = Math.max(0, Math.min(player.x+player.w/2-canvas.width/2,  MAP_W*TILE-canvas.width));
+    const camY = Math.max(0, Math.min(player.y+player.h/2-canvas.height/2, MAP_H*TILE-canvas.height));
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    const startTX=Math.floor(camX/TILE), startTY=Math.floor(camY/TILE);
+    const endTX=Math.ceil((camX+canvas.width)/TILE), endTY=Math.ceil((camY+canvas.height)/TILE);
+
+    for (let ty=startTY; ty<endTY; ty++) for (let tx=startTX; tx<endTX; tx++) {
+      if (tx<0||ty<0||tx>=MAP_W||ty>=MAP_H) continue;
+      drawTile(sheets.ground, GROUND_TILE[0], GROUND_TILE[1], tx*TILE-camX, ty*TILE-camY);
+    }
+    for (let ty=startTY; ty<endTY; ty++) for (let tx=startTX; tx<endTX; tx++) {
+      if (tx<0||ty<0||tx>=MAP_W||ty>=MAP_H) continue;
+      if (pathMask[ty][tx]) { const [sx,sy]=pathTileFor(tx,ty); drawTile(sheets.path, sx, sy, tx*TILE-camX, ty*TILE-camY); }
+    }
+    // lake: flat two-tone water fill
+    for (let ty=startTY; ty<endTY; ty++) for (let tx=startTX; tx<endTX; tx++) {
+      if (tx<0||ty<0||tx>=MAP_W||ty>=MAP_H) continue;
+      if (water[ty][tx]) {
+        ctx.fillStyle = ((tx+ty)%2===0) ? '#2f6f9e' : '#3a7fb0';
+        ctx.fillRect(tx*TILE-camX, ty*TILE-camY, TILE, TILE);
+        if ((tx*7+ty*13)%23===0){ ctx.fillStyle='#bfe3f5'; ctx.fillRect(tx*TILE-camX+5,ty*TILE-camY+6,3,1); }
+      }
+    }
+    // garden fence
+    for (let x=garden.x0; x<=garden.x1; x++) [garden.y0,garden.y1].forEach(y=>{
+      if (solid[y][x]) { const c=(x===garden.x0||x===garden.x1); const [sx,sy]=c?FENCE.corner:FENCE.h; drawTile(sheets.fences,sx,sy,x*TILE-camX,y*TILE-camY); }
+    });
+    for (let y=garden.y0; y<=garden.y1; y++) [garden.x0,garden.x1].forEach(x=>{
+      if (solid[y][x]) { const c=(y===garden.y0||y===garden.y1); const [sx,sy]=c?FENCE.corner:FENCE.v; drawTile(sheets.fences,sx,sy,x*TILE-camX,y*TILE-camY); }
+    });
+    // maze walls
+    for (let ty=startTY; ty<endTY; ty++) for (let tx=startTX; tx<endTX; tx++) {
+      if (tx<mazeX0||ty<mazeY0||tx>mazeX0+cw*2||ty>mazeY0+ch*2) continue;
+      if (solid[ty][tx]) drawTile(sheets.fences, WALL_TILE[0], WALL_TILE[1], tx*TILE-camX, ty*TILE-camY);
+    }
+
+    const drawList = decorations
+      .filter(d=>d.x>=startTX-2&&d.x<=endTX+2&&d.y>=startTY-2&&d.y<=endTY+2)
+      .map(d=>({...d,sortY:d.y}));
+    drawList.push({type:'PLAYER', sortY:(player.y+player.h)/TILE});
+    drawList.sort((a,b)=>a.sortY-b.sortY);
+    drawList.forEach(d=>{
+      if (d.type==='PLAYER') drawPlayer(player.x-camX, player.y-camY);
+      else if (d.type==='bush') {
+        const [sx,sy]=RES_TILES.bush;
+        drawTile(sheets.resources,sx,sy,d.x*TILE-camX,d.y*TILE-TILE-camY);
+        drawTile(sheets.resources,sx+1,sy,d.x*TILE+TILE-camX,d.y*TILE-TILE-camY);
+        drawTile(sheets.resources,sx,sy+1,d.x*TILE-camX,d.y*TILE-camY);
+        drawTile(sheets.resources,sx+1,sy+1,d.x*TILE+TILE-camX,d.y*TILE-camY);
+      } else { const [sx,sy]=RES_TILES[d.type]; drawTile(sheets.resources,sx,sy,d.x*TILE-camX,d.y*TILE-camY); }
+    });
+
+    // landmark labels
+    ctx.font = '6px monospace';
+    ctx.textAlign = 'center';
+    labels.forEach(l=>{
+      const sx = l.x*TILE - camX + TILE/2, sy = l.y*TILE - camY;
+      if (sx<-40||sx>canvas.width+40||sy<-20||sy>canvas.height+20) return;
+      ctx.fillStyle = '#000000aa'; ctx.fillText(l.text, sx+1, sy+1);
+      ctx.fillStyle = '#ffe9b0'; ctx.fillText(l.text, sx, sy);
+    });
+  }
+
+  function loop(now){ const dt=Math.min(0.05,(now-last)/1000); last=now; update(dt); render(); requestAnimationFrame(loop); }
+
+  Promise.all([
+    loadImage('ground','assets/forest_ground.png'),
+    loadImage('path','assets/forest_path.png'),
+    loadImage('fences','assets/forest_fences.png'),
+    loadImage('resources','assets/forest_resources.png'),
+  ]).then(()=>{
+    statusEl.textContent = '이동: WASD / 방향키   —   하나로 이어진 오픈 필드 맵 (농장 · 숲 · 호수 · 미로)';
+    last = performance.now();
+    requestAnimationFrame(loop);
+  }).catch(err=>{ statusEl.textContent='에셋 로딩 실패: '+err; console.error(err); });
+})();
+</script>
+</body>
+</html>

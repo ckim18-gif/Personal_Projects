@@ -1,0 +1,190 @@
+/* ===================== style.css ===================== */
+:root {
+  --gold: #d4af37;
+  --blue: #3aa0d8;
+  --red: #c0392b;
+  --bg: #0b0d12;
+  --panel: #171a22;
+  --panel-border: #2b2f3a;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  width: 100%; height: 100%;
+  background: var(--bg);
+  overflow: hidden;
+  font-family: "Noto Sans KR", sans-serif;
+  color: #eee;
+}
+
+canvas#game-canvas {
+  position: absolute; top: 0; left: 0;
+  image-rendering: pixelated;
+  display: block;
+  cursor: crosshair;
+}
+
+.hidden { display: none !important; }
+
+/* ---------- 공용 화면(메뉴/게임오버/승리) ---------- */
+.screen {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(20,24,34,0.92) 0%, rgba(6,7,10,0.97) 75%);
+  z-index: 20;
+}
+
+.menu-box {
+  text-align: center;
+  padding: 40px 50px;
+  background: linear-gradient(180deg, #1b1f2a 0%, #12141b 100%);
+  border: 2px solid var(--panel-border);
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px #000, 0 20px 60px rgba(0,0,0,0.6);
+  max-width: 640px;
+}
+
+.title {
+  font-family: "Press Start 2P", monospace;
+  font-size: 34px;
+  letter-spacing: 2px;
+  margin: 0 0 6px;
+  color: var(--gold);
+  text-shadow: 0 0 18px rgba(212,175,55,0.55), 3px 3px 0 #000;
+}
+.title.lose { color: var(--red); text-shadow: 0 0 18px rgba(192,57,43,0.6), 3px 3px 0 #000; }
+.title.win { color: #6be08a; text-shadow: 0 0 18px rgba(107,224,138,0.6), 3px 3px 0 #000; }
+
+.subtitle {
+  font-size: 15px; color: #9aa0ac; margin: 0 0 22px;
+  letter-spacing: 1px;
+}
+.draft-tag {
+  background: var(--red); color: #fff; font-size: 10px;
+  padding: 2px 6px; border-radius: 3px; margin-left: 6px;
+  vertical-align: middle;
+}
+
+.desc { color: #c7cbd4; line-height: 1.7; font-size: 14px; margin-bottom: 26px; }
+
+.mode-select { display: flex; gap: 18px; justify-content: center; margin-bottom: 22px; }
+
+.mode-card {
+  flex: 1;
+  background: #1e2330;
+  border: 2px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 20px 14px;
+  color: #eee;
+  cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  transition: transform 0.15s, border-color 0.15s, background 0.15s;
+  font-family: inherit;
+}
+.mode-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--gold);
+  background: #262c3d;
+}
+.mode-card.small { flex: none; padding: 12px 30px; }
+.mode-icon { font-size: 30px; }
+.mode-title { font-weight: 900; font-size: 16px; color: var(--gold); }
+.mode-desc { font-size: 12px; color: #a9afbb; line-height: 1.5; }
+
+.controls-hint {
+  font-size: 12px; color: #7d8390;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 14px;
+}
+
+/* ---------- HUD ---------- */
+#hud {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  font-family: "Noto Sans KR", sans-serif;
+}
+
+#hud-top {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 16px; align-items: center;
+  background: rgba(10,12,17,0.7);
+  border: 1px solid var(--panel-border);
+  padding: 6px 18px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+#hud-mode-name { color: var(--gold); font-weight: 900; }
+#timer-text { color: #cfd3db; font-family: monospace; }
+#mode-extra { color: #ff9d6b; font-weight: 700; }
+
+#hud-bottom {
+  position: absolute; bottom: 18px; left: 0; right: 0;
+  display: flex; justify-content: space-between; align-items: flex-end;
+  padding: 0 24px;
+}
+
+#hud-left {
+  background: rgba(10,12,17,0.75);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 10px 16px;
+  min-width: 260px;
+}
+#level-text { font-weight: 900; color: var(--gold); font-size: 14px; margin-bottom: 4px; }
+
+.bar-wrap { position: relative; margin: 4px 0; }
+.bar {
+  width: 240px; height: 16px;
+  background: #1a1a1a;
+  border: 1px solid #000;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.xp-bar { height: 8px; }
+.bar-fill {
+  height: 100%;
+  width: 0%;
+  transition: width 0.15s;
+}
+.hp-bar .bar-fill { background: linear-gradient(180deg, #4be86c, #23a83f); }
+.xp-bar .bar-fill { background: linear-gradient(180deg, #7fd3ff, #3a9fe0); }
+.bar-label {
+  position: absolute; top: 0; left: 0; right: 0;
+  text-align: center; font-size: 10px; line-height: 16px;
+  color: #fff; text-shadow: 1px 1px 1px #000;
+}
+#gold-text { color: var(--gold); font-size: 12px; margin-top: 6px; font-weight: 700; }
+#buffs { margin-top: 4px; }
+.buff-icon { opacity: 0.2; filter: grayscale(1); margin-right: 6px; font-size: 15px; }
+.buff-icon.active { opacity: 1; filter: none; }
+
+#skills { display: flex; gap: 10px; }
+.skill-slot {
+  position: relative;
+  width: 54px; height: 54px;
+  background: #1e2330;
+  border: 2px solid var(--panel-border);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.skill-slot .key {
+  font-family: "Press Start 2P", monospace;
+  font-size: 14px; color: #dfe3ea;
+}
+.skill-slot.locked { opacity: 0.35; }
+.skill-slot.ult { border-color: var(--gold); }
+.skill-slot .rank {
+  position: absolute; bottom: 2px; right: 4px;
+  font-size: 9px; color: var(--gold); font-weight: 900;
+}
+.skill-slot .cd {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.65);
+  font-size: 16px; font-weight: 900; color: #fff;
+  border-radius: 4px;
+}
+.skill-slot .cd:empty { background: transparent; }

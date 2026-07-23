@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Wuju Combat Sandbox — 3D</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p>대숲을 불러오는 중...</p>
+  <p id="loadErr">3D 엔진을 불러오지 못했습니다. 인터넷 연결을 확인해주세요.</p>
+</div>
+
+<div id="container">
+  <div id="hud">
+    <h1>Wuju Combat Sandbox</h1>
+    <div class="row"><span>상태</span><b id="statusText" class="status">ACTIVE</b></div>
+    <div class="row"><span>이동속도</span><b id="speedText">4.3</b></div>
+    <div class="row"><span>좌표</span><b id="coordText" style="font-family:'Consolas',monospace;">X 0 · Z 0</b></div>
+    <div class="row"><span>패시브</span><b id="passiveText" class="passive">더블 스트라이크까지 4타</b></div>
+    <hr>
+    <div class="hint">
+      방향키 이동 (카메라 기준) · A / Space / 좌클릭 평타 · Q W E R 스킬<br>
+      드래그로 카메라 회전 · 휠 줌 · Z 시점 전환
+    </div>
+  </div>
+
+  <div id="camBadge">시점: <b id="camModeText">MOBA</b></div>
+
+  <div id="toast3d"></div>
+
+  <div id="skillbar">
+    <div class="skill" id="skillQ" data-key="Q">
+      <span class="key">Q</span>
+      <span class="glyph" style="color:#f2c14e;">⚔</span>
+      <div class="cd-veil" style="display:none;"></div>
+      <div class="sub">READY</div>
+    </div>
+    <div class="skill" id="skillW" data-key="W">
+      <span class="key">W</span>
+      <span class="glyph" style="color:#34d399;">◎</span>
+      <div class="cd-veil" style="display:none;"></div>
+      <div class="sub">READY</div>
+    </div>
+    <div class="skill" id="skillE" data-key="E">
+      <span class="key">E</span>
+      <span class="glyph" style="color:#38bdf8;">✦</span>
+      <div class="cd-veil" style="display:none;"></div>
+      <div class="sub">READY</div>
+    </div>
+    <div class="skill" id="skillR" data-key="R">
+      <span class="key">R</span>
+      <span class="glyph" style="color:#f87171;">➤</span>
+      <div class="cd-veil" style="display:none;"></div>
+      <div class="sub">READY</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
+        onerror="document.getElementById('loadErr').style.display='block';"></script>
+<script src="game.js"></script>
+</body>
+</html>

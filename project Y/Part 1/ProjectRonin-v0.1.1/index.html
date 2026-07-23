@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Project Ronin v0.1.1</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="app">
+    <canvas id="game" width="1280" height="720" aria-label="Project Ronin game canvas"></canvas>
+
+    <section id="loading" class="overlay">
+      <div class="panel">
+        <h1>PROJECT RONIN</h1>
+        <p id="loadingText">에셋 불러오는 중…</p>
+      </div>
+    </section>
+
+    <section id="help">
+      <strong>WASD</strong> 이동
+      <span>·</span>
+      <strong>마우스 클릭</strong> 공격
+      <span>·</span>
+      <strong>R</strong> 시작 위치로
+    </section>
+  </main>
+  <script src="js/main.js"></script>
+</body>
+</html>

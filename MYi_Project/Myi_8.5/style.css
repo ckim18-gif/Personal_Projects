@@ -1,0 +1,115 @@
+:root {
+  --ink: #070b09;
+  --panel: rgba(8, 16, 12, 0.82);
+  --panel-border: rgba(52, 211, 153, 0.28);
+  --jade: #34d399;
+  --jade-bright: #6ee7b7;
+  --gold: #f2c14e;
+  --blood: #ef4444;
+  --text: #eafff2;
+  --dim: #7fa08c;
+  --cyan: #38bdf8;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  background: var(--ink);
+  font-family: 'Rajdhani', 'Segoe UI', 'Malgun Gothic', sans-serif;
+  color: var(--text);
+}
+#container { position: relative; width: 100vw; height: 100vh; }
+canvas { display: block; }
+
+#loading {
+  position: fixed; inset: 0; z-index: 999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: var(--ink); gap: 14px;
+}
+#loading .spinner {
+  width: 46px; height: 46px; border-radius: 50%;
+  border: 3px solid rgba(52,211,153,0.15); border-top-color: var(--jade);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#loading p { color: var(--dim); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; }
+#loading.hidden { display: none; }
+#loadErr { color: var(--blood); font-size: 12px; max-width: 360px; text-align: center; display:none; }
+
+#hud {
+  position: absolute; top: 18px; left: 18px; z-index: 10;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  backdrop-filter: blur(6px);
+  min-width: 300px;
+  box-shadow: 0 0 30px rgba(52,211,153,0.06), inset 0 0 40px rgba(0,0,0,0.3);
+}
+#hud h1 {
+  margin: 0 0 8px 0; font-size: 15px; letter-spacing: 3px;
+  color: var(--jade-bright); font-weight: 700; text-transform: uppercase;
+  text-shadow: 0 0 12px rgba(110,231,183,0.5);
+}
+#hud .row {
+  display: flex; justify-content: space-between; gap: 14px;
+  font-size: 12.5px; color: var(--dim); margin: 3px 0;
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+#hud .row b { color: var(--text); font-weight: 600; }
+#hud .status { color: var(--jade); }
+#hud .passive { color: var(--gold); }
+#hud hr { border: none; border-top: 1px solid rgba(52,211,153,0.15); margin: 8px 0; }
+#hud .hint { font-size: 10.5px; color: #4d6459; line-height: 1.6; }
+
+#skillbar {
+  position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%);
+  z-index: 10; display: flex; gap: 12px;
+}
+.skill {
+  position: relative; width: 66px; height: 66px;
+  border-radius: 10px;
+  border: 2px solid rgba(52,211,153,0.35);
+  background: linear-gradient(160deg, #10241a, #06110c);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.5);
+  transition: transform 0.12s ease, border-color 0.15s ease;
+}
+.skill .key {
+  position: absolute; top: 3px; left: 6px; font-size: 12px; font-weight: 700;
+  color: var(--text); text-shadow: 0 1px 3px #000;
+  font-family: 'Consolas', monospace;
+}
+.skill .glyph { font-size: 24px; opacity: 0.92; filter: drop-shadow(0 0 6px currentColor); }
+.skill .cd-veil {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.72);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 19px; font-weight: 700; font-family: 'Consolas', monospace;
+  color: #fff;
+}
+.skill .sub {
+  position: absolute; bottom: 2px; width: 100%; text-align: center;
+  font-size: 9px; letter-spacing: 1px; text-transform: uppercase;
+  font-family: 'Consolas', monospace;
+}
+.skill.ready { border-color: rgba(52,211,153,0.55); }
+.skill.ready .sub { color: var(--jade-bright); }
+.skill.active { transform: translateY(-4px) scale(1.04); border-color: #fff; box-shadow: 0 0 22px rgba(255,255,255,0.35); }
+.skill.active .sub { color: #fff; }
+.skill.cooling .sub { color: #5a7268; }
+
+#toast3d {
+  position: absolute; top: 24px; left: 50%; transform: translateX(-50%) translateY(-10px);
+  z-index: 12; background: rgba(10, 18, 14, 0.92); border: 1px solid rgba(242,193,78,0.5);
+  color: var(--gold); padding: 8px 18px; border-radius: 8px; font-size: 13px;
+  letter-spacing: 1px; opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.3s;
+}
+#toast3d.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+#camBadge {
+  position: absolute; top: 18px; right: 18px; z-index: 10;
+  background: var(--panel); border: 1px solid var(--panel-border);
+  border-radius: 8px; padding: 8px 14px; font-size: 11.5px; color: var(--dim);
+  letter-spacing: 1px; font-family: 'Consolas', monospace;
+}
+#camBadge b { color: var(--jade-bright); }

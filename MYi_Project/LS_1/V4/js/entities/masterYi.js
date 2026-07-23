@@ -1,0 +1,286 @@
+// ===================== entities/masterYi.js =====================
+// 플레이어 챔피언: 마스터 이 (Master Yi)
+// 패시브 더블스트라이크, Q 알파 스트라이크, W 메디테이트, E 우쥬 스타일, R 하이랜더
+
+class MasterYi extends Entity {
+  constructor(x, y) {
+    super(x, y, 13);
+    this.team = "ally";
+    this.level = 1;
+    this.xp = 0;
+    this.xpToNext = 40;
+
+    this.maxHp = 620;
+    this.hp = this.maxHp;
+    this.baseAd = 58;
+    this.speed = 145;
+    this.range = 36; // 근접 사거리
+    this.attackInterval = 0.85;
+    this.attackCd = 0;
+    this.facing = 1;
+
+    // 스킬 랭크
+    this.rank = { q: 0, w: 0, e: 0, r: 0 };
+    this.cd = { q: 0, w: 0, e: 0, r: 0 };
+    this.skillPoints = 0;
+
+    // 상태 버프
+    this.invulnerable = false;
+    this.invulnTimer = 0;
+    this.meditating = false;
+    this.wujuActive = false; this.wujuTimer = 0;
+    this.highlanderActive = false; this.highlanderTimer = 0;
+    this.stealthed = false;
+
+    this.doubleStrikeCounter = 0; // 패시브: 4타마다 2연타
+    this.swingT = 1;
+    this.moveTarget = null;
+    this.autoTarget = null;
+
+    this.jungleBuffs = { red: 0, blue: 0 };
+    this.gold = 0;
+    this.keys = {};
+    this.dashUntil = 0;
+    this.dashVX = 0; this.dashVY = 0;
+    this.slowPct = 0; this.slowUntil = 0;
+  }
+
+  get ad() {
+    let v = this.baseAd + (this.level - 1) * 6;
+    if (this.wujuActive) v *= 1.45;
+    if (this.jungleBuffs.red > 0) v += 15;
+    return v;
+  }
+  get moveSpeed() {
+    let v = this.speed + (this.level - 1) * 2;
+    if (this.highlanderActive) v *= 1.35;
+    if (this.jungleBuffs.blue > 0) v *= 1.1;
+    if (this.slowUntil && performance.now() < this.slowUntil) v *= (1 - this.slowPct);
+    return v;
+  }
+  get attackSpeedMul() {
+    let v = 1 + (this.level - 1) * 0.03;
+    if (this.highlanderActive) v *= 1.4;
+    if (this.jungleBuffs.blue > 0) v *= 1.15;
+    return v;
+  }
+
+  gainXp(amount) {
+    if (this.level >= 18) return;
+    this.xp += amount;
+    while (this.xp >= this.xpToNext && this.level < 18) {
+      this.xp -= this.xpToNext;
+      this.level++;
+      this.skillPoints++;
+      this.maxHp += 65;
+      this.hp += 65;
+      this.xpToNext = Math.round(40 + this.level * 22);
+      this.autoLevelUp();
+    }
+  }
+
+  // 초안 단계에서는 자동 스킬 트리 성장(Q > E > W, R은 6/11/16)
+  autoLevelUp() {
+    if (this.skillPoints <= 0) return;
+    if (this.level === 6 || this.level === 11 || this.level === 16) {
+      if (this.rank.r < 3) { this.rank.r++; this.skillPoints--; return; }
+    }
+    const order = ["q", "e", "w"];
+    for (const k of order) {
+      if (this.rank[k] < 5) { this.rank[k]++; this.skillPoints--; return; }
+    }
+  }
+
+  applyJungleBuff(kind) {
+    this.jungleBuffs[kind] = 90; // 90초 지속
+    Game.instance.floatTexts.push(new FloatText(this.x, this.y - 40,
+      kind === "red" ? "적화 버프 획득!" : "청화 버프 획득!", kind === "red" ? "#ff6b4a" : "#6bb7ff", 13));
+  }
+
+  takeDamage() {} // dealDamage 헬퍼에서 처리
+
+  update(dt, game) {
+    super.update(dt);
+    if (this.hp <= 0) { game.onPlayerDeath(); return; }
+
+    // 타이머류 감소
+    for (const k of ["q", "w", "e", "r"]) if (this.cd[k] > 0) this.cd[k] -= dt;
+    if (this.jungleBuffs.red > 0) this.jungleBuffs.red -= dt;
+    if (this.jungleBuffs.blue > 0) this.jungleBuffs.blue -= dt;
+    if (this.invulnTimer > 0) { this.invulnTimer -= dt; if (this.invulnTimer <= 0) this.invulnerable = false; }
+    if (this.wujuTimer > 0) { this.wujuTimer -= dt; if (this.wujuTimer <= 0) this.wujuActive = false; }
+    if (this.highlanderTimer > 0) { this.highlanderTimer -= dt; if (this.highlanderTimer <= 0) this.highlanderActive = false; }
+    if (this.swingT < 1) this.swingT += dt * 4;
+
+    // 대시 중(알파 스트라이크, 다리우스 E 붙잡기 등)
+    if (performance.now() < this.dashUntil) {
+      this.x += this.dashVX * dt;
+      this.y += this.dashVY * dt;
+      this.animT += dt;
+      return;
+    }
+
+    // 메디테이트 중엔 이동 불가, 자힐 + 피해감소
+    if (this.meditating) {
+      const rank = this.rank.w;
+      const healPct = 0.02 + rank * 0.014;
+      this.hp = Math.min(this.maxHp, this.hp + this.maxHp * healPct * dt);
+      return;
+    }
+
+    // 이동 (방향키) - WASD는 스킬(Q/W/E/R)과 겹치므로 이동에 쓰지 않음
+    let mx = 0, my = 0;
+    if (this.keys["arrowup"]) my -= 1;
+    if (this.keys["arrowdown"]) my += 1;
+    if (this.keys["arrowleft"]) mx -= 1;
+    if (this.keys["arrowright"]) mx += 1;
+    if (mx || my) {
+      const len = Math.hypot(mx, my);
+      mx /= len; my /= len;
+      this.x += mx * this.moveSpeed * dt;
+      this.y += my * this.moveSpeed * dt;
+      this.facing = mx !== 0 ? (mx > 0 ? 1 : -1) : this.facing;
+    }
+
+    // 맵 경계
+    const b = game.currentMode.bounds;
+    if (b) {
+      this.x = Utils.clamp(this.x, b.minX, b.maxX);
+      this.y = Utils.clamp(this.y, b.minY, b.maxY);
+    }
+
+    // 평타는 자동발동하지 않음(Z키 수동입력) - 여기서는 대상 추적/방향전환만 수행
+    if (this.attackCd > 0) this.attackCd -= dt;
+    const enemies = game.getEnemiesNear(this, this.range + 20);
+    this.autoTarget = enemies[0] || null;
+    if (this.autoTarget) this.facing = this.autoTarget.x >= this.x ? 1 : -1;
+  }
+
+  // A키로 수동 발동되는 평타. 사거리 내 타겟이 있으면 타격, 없어도 마우스 방향으로 허공을 벤다(자유도).
+  performBasicAttack(game) {
+    if (this.meditating) return;
+    if (this.attackCd > 0) return;
+    this.attackCd = this.attackInterval / this.attackSpeedMul;
+    this.swingT = 0;
+
+    const target = game.getEnemiesNear(this, this.range + 20)[0];
+    let aimAngle;
+    if (target) {
+      aimAngle = Utils.angle(this, target);
+      this.facing = target.x >= this.x ? 1 : -1;
+    } else {
+      aimAngle = Math.atan2(game.mouse.wy - this.y, game.mouse.wx - this.x);
+      this.facing = Math.cos(aimAngle) >= 0 ? 1 : -1;
+    }
+
+    this.doubleStrikeCounter++;
+    let hits = 1;
+    if (this.doubleStrikeCounter >= 4) { hits = 2; this.doubleStrikeCounter = 0; } // 패시브: 4타마다 2연타
+
+    if (target) {
+      for (let i = 0; i < hits; i++) {
+        game.dealDamage(this, target, this.ad * (i === 1 ? 0.55 : 1));
+      }
+      game.spawnParticleBurst(target.x, target.y, "#fff6c9", 5);
+      game.slashes.push(new SlashEffect(target.x, target.y, aimAngle, { color: "#ffffff", length: 30 }));
+    } else {
+      // 허공 스윙: 데미지는 없지만 캐릭터 앞쪽에 참격 이펙트만 표시 (자유롭게 휘두르는 느낌)
+      const sx = this.x + Math.cos(aimAngle) * 30;
+      const sy = this.y + Math.sin(aimAngle) * 30;
+      game.slashes.push(new SlashEffect(sx, sy, aimAngle, { color: "#cfd6de", length: 26 }));
+    }
+  }
+
+  // ---------------- 스킬 ----------------
+  tryCast(key, game) {
+    if (this.meditating && key !== "w") return; // 메디테이트 중엔 W(취소)만 가능
+    if (key === "q") return this.castQ(game);
+    if (key === "w") return this.castW(game);
+    if (key === "e") return this.castE(game);
+    if (key === "r") return this.castR(game);
+  }
+
+  castQ(game) {
+    if (this.rank.q <= 0 || this.cd.q > 0) return;
+    const target = game.getEnemiesNear(this, 260)[0];
+    let ang;
+    if (target) ang = Utils.angle(this, target);
+    else ang = Math.atan2(game.mouse.wy - this.y, game.mouse.wx - this.x);
+    this.cd.q = Math.max(2.5, 6.5 - this.rank.q * 0.7);
+    const dashDist = 220;
+    this.dashVX = Math.cos(ang) * 900;
+    this.dashVY = Math.sin(ang) * 900;
+    this.dashUntil = performance.now() + (dashDist / 900) * 1000;
+    this.invulnerable = true;
+    this.invulnTimer = dashDist / 900 + 0.15;
+    const dmg = 30 + this.rank.q * 22 + this.ad * 0.6;
+    // 경로상의 모든 적 타격
+    const hitRange = 70;
+    for (const en of game.getAllEnemies()) {
+      if (Utils.pointInCapsule(en, this, ang, dashDist, hitRange)) {
+        game.dealDamage(this, en, dmg);
+        game.slashes.push(new SlashEffect(en.x, en.y, ang, { color: "#9be8ff", length: 34 }));
+      }
+    }
+    game.spawnParticleBurst(this.x, this.y, "#ffffff", 10);
+    game.floatTexts.push(new FloatText(this.x, this.y - 30, "알파 스트라이크!", "#9be8ff", 11));
+  }
+
+  castW(game) {
+    if (this.meditating) { this.meditating = false; return; } // 토글 취소
+    if (this.rank.w <= 0 || this.cd.w > 0) return;
+    this.meditating = true;
+    this.cd.w = Math.max(6, 14 - this.rank.w * 1.2);
+    game.floatTexts.push(new FloatText(this.x, this.y - 30, "메디테이트", "#8fffb0", 11));
+    // 3초 후 자동 종료(수동 W로도 취소 가능)
+    this._meditateEnd = performance.now() + 3000;
+    clearTimeout(this._medTimer);
+    this._medTimer = setTimeout(() => { this.meditating = false; }, 3000);
+  }
+
+  castE(game) {
+    if (this.rank.e <= 0 || this.cd.e > 0) return;
+    this.cd.e = Math.max(8, 16 - this.rank.e * 1.4);
+    this.wujuActive = true;
+    this.wujuTimer = 5 + this.rank.e * 0.6;
+    game.floatTexts.push(new FloatText(this.x, this.y - 30, "우쥬 스타일!", "#ffb84a", 11));
+  }
+
+  castR(game) {
+    if (this.rank.r <= 0 || this.cd.r > 0) return;
+    this.cd.r = Math.max(60, 100 - this.rank.r * 15);
+    this.highlanderActive = true;
+    this.highlanderTimer = 8 + this.rank.r * 2;
+    game.floatTexts.push(new FloatText(this.x, this.y - 34, "하이랜더!!", "#ffe14a", 15));
+  }
+
+  // 처치 시 R 재사용 대기시간 감소(패시브)
+  onTakedown(game) {
+    if (this.highlanderActive) {
+      this.cd.q = 0; this.cd.w = 0; this.cd.e = 0;
+      this.cd.r = Math.max(0, this.cd.r - 4);
+    }
+  }
+
+  draw(ctx, cam) {
+    const spec = {
+      skin: "#e8c39e", body: "#e9e9f2", accent: "#3aa0d8",
+      hair: "#141414", weapon: "sword", weaponColor: "#dfe6ee",
+      glow: this.wujuActive ? "#ffb84a" : (this.highlanderActive ? "#ffe14a" : null)
+    };
+    if (this.invulnerable) ctx.globalAlpha = 0.6;
+    drawHumanoid(ctx, this.x - cam.x, this.y - cam.y, this.facing, spec, this.animT, this.swingT);
+    ctx.globalAlpha = 1;
+    if (this.meditating) {
+      ctx.save();
+      ctx.strokeStyle = "#8fffb0";
+      ctx.globalAlpha = 0.5 + Math.sin(this.animT * 8) * 0.3;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(this.x - cam.x, this.y - cam.y - 10, 20, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    drawHealthBar(ctx, this.x - cam.x, this.y - cam.y - 40, 40, this.hp, this.maxHp, "#3ddc61", true);
+  }
+}

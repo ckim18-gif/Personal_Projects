@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>협곡 서바이버 - Rift Survivors (초안)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<canvas id="game-canvas"></canvas>
+
+<!-- ================= 메인 메뉴 ================= -->
+<div id="screen-menu" class="screen">
+  <div class="menu-box">
+    <h1 class="title">RIFT SURVIVORS</h1>
+    <p class="subtitle">협곡 서바이버 <span class="draft-tag">초안 v0.1</span></p>
+    <p class="desc">롤(LoL)의 세계관을 차용한 핵앤슬래시 × 디펜스 서바이버.<br>
+    당신은 <b>마스터 이</b>가 되어 협곡에서 살아남으십시오.</p>
+
+    <div class="mode-select">
+      <button id="btn-lane" class="mode-card">
+        <span class="mode-icon">🗼</span>
+        <span class="mode-title">라인 모드</span>
+        <span class="mode-desc">밀려오는 미니언 웨이브와 <b>다리우스</b>로부터<br>포탑과 넥서스를 사수하라</span>
+      </button>
+      <button id="btn-jungle" class="mode-card">
+        <span class="mode-icon">🌲</span>
+        <span class="mode-title">정글 모드</span>
+        <span class="mode-desc">중립 몬스터를 사냥하며 성장하고<br><b>협곡의 고룡</b>을 처치하라</span>
+      </button>
+    </div>
+
+    <div class="controls-hint">
+      <b>조작법</b> — 이동: WASD ・ 평타: Z (수동) ・ 스킬: Q W E R
+    </div>
+  </div>
+</div>
+
+<!-- ================= HUD ================= -->
+<div id="hud" class="hidden">
+  <div id="hud-top">
+    <div id="hud-mode-name"></div>
+    <div id="timer-text">0:00</div>
+    <div id="mode-extra"></div>
+  </div>
+
+  <div id="hud-bottom">
+    <div id="hud-left">
+      <div id="level-text">Lv.1</div>
+      <div class="bar-wrap">
+        <div class="bar hp-bar"><div id="hp-fill" class="bar-fill"></div></div>
+        <span id="hp-text" class="bar-label">620/620</span>
+      </div>
+      <div class="bar-wrap">
+        <div class="bar xp-bar"><div id="xp-fill" class="bar-fill"></div></div>
+      </div>
+      <div id="gold-text">0 G</div>
+      <div id="buffs">
+        <span id="buff-red" class="buff-icon">🔥</span>
+        <span id="buff-blue" class="buff-icon">💧</span>
+      </div>
+    </div>
+
+    <div id="skills">
+      <div class="skill-slot" data-key="Q"><div class="rank"></div><span class="key">Q</span><div id="cd-q" class="cd"></div></div>
+      <div class="skill-slot" data-key="W"><div class="rank"></div><span class="key">W</span><div id="cd-w" class="cd"></div></div>
+      <div class="skill-slot" data-key="E"><div class="rank"></div><span class="key">E</span><div id="cd-e" class="cd"></div></div>
+      <div class="skill-slot ult" data-key="R"><div class="rank"></div><span class="key">R</span><div id="cd-r" class="cd"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 게임오버 / 승리 ================= -->
+<div id="screen-gameover" class="screen hidden">
+  <div class="menu-box">
+    <h2 class="title lose">DEFEAT</h2>
+    <p id="gameover-msg" class="desc"></p>
+    <button id="btn-restart" class="mode-card small">메인 메뉴로</button>
+  </div>
+</div>
+
+<div id="screen-victory" class="screen hidden">
+  <div class="menu-box">
+    <h2 class="title win">VICTORY</h2>
+    <p id="victory-msg" class="desc"></p>
+    <button id="btn-restart2" class="mode-card small">메인 메뉴로</button>
+  </div>
+</div>
+
+<!-- ================= 스크립트 (파일 분리: 업데이트 용이) ================= -->
+<script src="js/utils.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/entities/base.js"></script>
+<script src="js/entities/masterYi.js"></script>
+<script src="js/entities/darius.js"></script>
+<script src="js/modes/laneMode.js"></script>
+<script src="js/modes/jungleMode.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

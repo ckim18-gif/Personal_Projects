@@ -1,0 +1,30 @@
+Solid Edge STL fájlformátumba mentése
+Dátum: szerda,december 01,2021 05:47du.
+Forrásfájl:C:\Users\ocsi\Desktop\Master yi sword\Alkatrész1.par
+Forrás rendszer: SOLID EDGE
+
+Hardver:
+Processzor: Intel(R) Core(TM) i3-8350K CPU @ 4.00GHz
+Operációs rendszer: Windows 10 Professional
+Memória mérete: 7,95 GB
+
+Szoftver Információ:
+Parasolid verzió: 32.1.222
+PSBodyshop Verzió: 32.1.94
+Solid Edge verzió: 221.00.03.003 x64
+
+STL exportálás beállításai:
+Kimeneti fájlformátum:BINARY
+Megjelenített alkatrészek kiírása:Kikapcsolva
+szerkezeti beállítások: Monolithic
+Mértékegység kiíratása:Inch
+Turés érték kiíratása:0,050000
+Turés típus kiíratása:Custom
+Felület sík bezárt szögének kiíratása:0,523599
+
+Fordítás folyamata:
+Lépés 1 / 2 parasolid információk begyujtése...
+Lépés 2 / 2 parasolid fordítása külso fájlformátumba....
+Létrehozott STL fájlok száma : 1
+Fordítási folyamat befejezodött
+Fordítás idotartama:00 : 00 : 04

@@ -1,0 +1,13 @@
+PROJECT RONIN v0.5.6.1
+- monk 최대 3명
+- slime 깜빡임 수정
+- 전반 이동속도 감소, pawn 예외
+- 마을 MAP 1 전용
+- MAP 4 타일 깨짐 완화
+- 상점 화살표 제거
+- 에너지 100, Q/W/E/R 비용 20/15/25/40, 초당 8 회복
+- MAP2 Blue Golem, MAP3 Orange Golem, MAP4 Kage 캠프
+- Energy Buff, Flame Aura, On Fire
+- Kage 스킬 AI 및 처치 보상 KPVS(D), Double Strike
+- 사망 결과 화면과 리셋/부활
+- 버프/디버프 아이콘 및 마우스 설명
